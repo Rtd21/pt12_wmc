@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tugas Saya — Task Manager</title>
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Aplikasi manajemen tugas sederhana dengan drawer, tabs, bottom navigation, dan kartu tugas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #f3f2fb;
+    --shell-bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f7f6fd;
+    --text: #1b1730;
+    --text-muted: #6b6680;
+    --primary: #6c4cf1;
+    --primary-dark: #5536d8;
+    --primary-soft: #ece7fd;
+    --accent: #18b48a;
+    --danger: #e3493f;
+    --danger-soft: #fde9e7;
+    --border: #e9e6f6;
+    --shadow-sm: 0 1px 2px rgba(27,23,48,.06);
+    --shadow-md: 0 8px 24px rgba(27,23,48,.10);
+    --shadow-lg: 0 16px 40px rgba(27,23,48,.16);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --topbar-h: 60px;
+    --tabs-h: 48px;
+    --bottom-h: 64px;
+    --ease: cubic-bezier(.22,.85,.32,1);
+  }
+
+  :root[data-theme="dark"]{
+    --bg: #0f0e17;
+    --shell-bg: #15131f;
+    --surface: #1a1828;
+    --surface-2: #201d30;
+    --text: #f1eefb;
+    --text-muted: #a39fc0;
+    --primary: #8a72ff;
+    --primary-dark: #7359f0;
+    --primary-soft: #2a2444;
+    --accent: #2cd4a5;
+    --danger: #ff6b62;
+    --danger-soft: #3a2030;
+    --border: #2a2740;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 8px 24px rgba(0,0,0,.45);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  button{font-family:inherit;}
+
+  .app-shell{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    background:var(--shell-bg);
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    box-shadow:var(--shadow-lg);
+    overflow-x:hidden;
+  }
+
+  /* ===== Visually hidden (for screen reader only content) ===== */
+  .sr-only{
+    position:absolute; width:1px; height:1px;
+    padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  /* Focus visibility for accessibility */
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+    outline:3px solid var(--primary);
+    outline-offset:2px;
+    border-radius:8px;
+  }
+
+  /* ===== Top App Bar ===== */
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    height:var(--topbar-h);
+    display:flex; align-items:center; gap:6px;
+    padding:0 8px 0 4px;
+    background:var(--shell-bg);
+    border-bottom:1px solid var(--border);
+  }
+  .icon-btn{
+    width:44px; height:44px;
+    display:flex; align-items:center; justify-content:center;
+    background:transparent; border:none; border-radius:50%;
+    color:var(--text); cursor:pointer;
+    transition:background .18s var(--ease), transform .18s var(--ease);
+  }
+  .icon-btn:hover{ background:var(--surface-2); }
+  .icon-btn:active{ transform:scale(.92); }
+  .icon-btn svg{ width:22px; height:22px; }
+
+  .topbar-title{
+    flex:1;
+    font-size:1.05rem;
+    font-weight:700;
+    letter-spacing:-.01em;
+    margin:0;
+  }
+  .topbar-actions{ display:flex; align-items:center; gap:2px; position:relative; }
+
+  .refresh-icon.is-spinning{ animation: spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Top apps submenu (dropdown) */
+  .apps-menu-wrap{ position:relative; }
+  .apps-menu{
+    position:absolute; top:52px; right:0;
+    min-width:200px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    box-shadow:var(--shadow-md);
+    padding:6px;
+    z-index:40;
+    transform-origin: top right;
+    animation: pop-in .16s var(--ease);
+  }
+  @keyframes pop-in{
+    from{ opacity:0; transform:scale(.92) translateY(-6px); }
+    to{ opacity:1; transform:scale(1) translateY(0); }
+  }
+  .apps-menu[hidden]{ display:none; }
+  .apps-menu button{
+    width:100%; text-align:left;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px;
+    border:none; background:transparent;
+    border-radius:var(--radius-sm);
+    font-size:.92rem; color:var(--text);
+    cursor:pointer;
+    transition:background .15s var(--ease);
+  }
+  .apps-menu button:hover{ background:var(--surface-2); }
+  .apps-menu hr{ border:none; border-top:1px solid var(--border); margin:6px 2px; }
+  .apps-menu .danger-item{ color:var(--danger); }
+
+  /* ===== Tabs bar ===== */
+  .tabs{
+    position:sticky; top:var(--topbar-h); z-index:25;
+    display:flex; gap:4px;
+    height:var(--tabs-h);
+    padding:0 10px;
+    background:var(--shell-bg);
+    border-bottom:1px solid var(--border);
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab-btn{
+    border:none; background:transparent;
+    color:var(--text-muted);
+    font-weight:600; font-size:.88rem;
+    padding:0 14px;
+    height:100%;
+    position:relative;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:color .18s var(--ease);
+  }
+  .tab-btn::after{
+    content:"";
+    position:absolute; left:10%; right:10%; bottom:0;
+    height:3px; border-radius:3px 3px 0 0;
+    background:var(--primary);
+    transform:scaleX(0);
+    transition:transform .22s var(--ease);
+  }
+  .tab-btn[aria-selected="true"]{ color:var(--primary); }
+  .tab-btn[aria-selected="true"]::after{ transform:scaleX(1); }
+  .tab-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:18px; height:18px; padding:0 4px;
+    margin-left:6px;
+    background:var(--surface-2); color:var(--text-muted);
+    border-radius:999px; font-size:.68rem; font-weight:700;
+  }
+  .tab-btn[aria-selected="true"] .tab-badge{ background:var(--primary-soft); color:var(--primary-dark); }
+
+  /* ===== Drawer ===== */
+  .drawer-overlay{
+    position:fixed; inset:0;
+    background:rgba(15,12,30,.45);
+    z-index:50;
+    opacity:0;
+    transition:opacity .25s var(--ease);
+  }
+  .drawer-overlay[hidden]{ display:none; }
+  .drawer-overlay.is-visible{ opacity:1; }
+
+  .drawer{
+    position:fixed; top:0; left:0; bottom:0;
+    width:min(82%, 320px);
+    background:var(--surface);
+    z-index:51;
+    box-shadow:var(--shadow-lg);
+    transform:translateX(-105%);
+    transition:transform .28s var(--ease);
+    display:flex; flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .drawer.is-open{ transform:translateX(0); }
+
+  .drawer-header{
+    padding:28px 20px 18px;
+    background:linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color:#fff;
+    border-radius:0 0 24px 0;
+  }
+  .drawer-avatar{
+    width:52px; height:52px; border-radius:50%;
+    background:rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:1.2rem;
+    margin-bottom:10px;
+  }
+  .drawer-header h2{ margin:0; font-size:1.05rem; font-weight:700; }
+  .drawer-header p{ margin:2px 0 0; font-size:.82rem; opacity:.85; }
+
+  .drawer-nav{ padding:10px; flex:1; overflow-y:auto; }
+  .drawer-section-label{
+    font-size:.72rem; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--text-muted);
+    padding:14px 12px 6px;
+  }
+  .drawer-link{
+    display:flex; align-items:center; gap:14px;
+    width:100%; border:none; background:transparent;
+    padding:11px 12px; border-radius:var(--radius-sm);
+    font-size:.92rem; font-weight:600; color:var(--text);
+    cursor:pointer; text-align:left;
+    transition:background .15s var(--ease), color .15s var(--ease);
+  }
+  .drawer-link:hover{ background:var(--surface-2); }
+  .drawer-link.is-active{ background:var(--primary-soft); color:var(--primary-dark); }
+  .drawer-link svg{ width:20px; height:20px; flex-shrink:0; }
+
+  .drawer-footer{
+    padding:14px 16px;
+    border-top:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .theme-toggle{
+    display:flex; align-items:center; gap:8px;
+    font-size:.85rem; font-weight:600; color:var(--text-muted);
+  }
+  .switch{
+    position:relative; width:42px; height:24px;
+    background:var(--border); border-radius:999px;
+    border:none; cursor:pointer; flex-shrink:0;
+    transition:background .2s var(--ease);
+  }
+  .switch::after{
+    content:""; position:absolute; top:3px; left:3px;
+    width:18px; height:18px; border-radius:50%;
+    background:#fff; box-shadow:var(--shadow-sm);
+    transition:transform .2s var(--ease);
+  }
+  .switch[aria-checked="true"]{ background:var(--primary); }
+  .switch[aria-checked="true"]::after{ transform:translateX(18px); }
+
+  /* ===== Main content / Cards ===== */
+  .content{
+    flex:1;
+    padding:14px 14px calc(var(--bottom-h) + 24px);
+    position:relative;
+  }
+  .content.is-loading{ opacity:.45; pointer-events:none; transition:opacity .2s var(--ease); }
+
+  .section-heading{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin:6px 2px 12px;
+  }
+  .section-heading h3{ margin:0; font-size:1.15rem; font-weight:800; letter-spacing:-.01em; }
+  .section-heading span{ font-size:.8rem; color:var(--text-muted); }
+
+  .card-list{ display:flex; flex-direction:column; gap:12px; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:16px;
+    box-shadow:var(--shadow-sm);
+    transition:transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s var(--ease);
+    overflow:hidden;
+    max-height:300px;
+  }
+  .card:hover{
+    transform:translateY(-4px);
+    box-shadow:var(--shadow-md);
+    border-color:transparent;
+  }
+  .card.is-removing{
+    transform:translateX(40px) scale(.96);
+    opacity:0;
+    max-height:0; padding-top:0; padding-bottom:0; margin:0; border-width:0;
+    transition:transform .22s var(--ease), opacity .22s var(--ease), max-height .28s var(--ease) .05s, padding .28s var(--ease) .05s, margin .28s var(--ease) .05s, border-width .28s var(--ease) .05s;
+  }
+  .card.is-entering{
+    animation: card-in .32s var(--ease);
+  }
+  @keyframes card-in{
+    from{ opacity:0; transform:translateY(10px) scale(.97); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  .card[hidden]{ display:none; }
+
+  .card-top{ display:flex; align-items:flex-start; gap:12px; }
+  .card-icon{
+    width:42px; height:42px; border-radius:var(--radius-sm);
+    background:var(--primary-soft); color:var(--primary-dark);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .card-icon svg{ width:21px; height:21px; }
+  .card-body{ flex:1; min-width:0; }
+  .card-body h4{ margin:0 0 3px; font-size:.98rem; font-weight:700; }
+  .card-body p{ margin:0; font-size:.84rem; color:var(--text-muted); line-height:1.4; }
+
+  .card-actions{ display:flex; gap:2px; flex-shrink:0; }
+  .card-actions .icon-btn{ width:36px; height:36px; }
+  .card-actions .icon-btn svg{ width:18px; height:18px; }
+  .card-actions .icon-btn.delete-btn:hover{ background:var(--danger-soft); color:var(--danger); }
+
+  .card-footer{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:12px; padding-top:12px;
+    border-top:1px solid var(--border);
+  }
+  .chip{
+    font-size:.72rem; font-weight:700; padding:4px 10px;
+    border-radius:999px; background:var(--surface-2); color:var(--text-muted);
+  }
+  .chip.tone-active{ background:#fff4d8; color:#9a6b00; }
+  .chip.tone-done{ background:#e3f8ee; color:#1c8a5d; }
+  .chip.tone-archived{ background:var(--surface-2); color:var(--text-muted); }
+  :root[data-theme="dark"] .chip.tone-active{ background:#3a3210; color:#ffd874; }
+  :root[data-theme="dark"] .chip.tone-done{ background:#0f3325; color:#7fe6b6; }
+  .date-label{ font-size:.75rem; color:var(--text-muted); }
+
+  .empty-state{
+    text-align:center; padding:60px 20px;
+    color:var(--text-muted);
+  }
+  .empty-state svg{ width:64px; height:64px; margin-bottom:14px; opacity:.6; }
+  .empty-state p{ margin:0; font-size:.9rem; }
+
+  /* ===== Undo bar (not a notification toast — inline contextual action bar) ===== */
+  .undo-bar{
+    position:absolute;
+    left:14px; right:14px; bottom:calc(var(--bottom-h) + 14px);
+    background:#22202f;
+    color:#fff;
+    border-radius:var(--radius-md);
+    padding:12px 8px 12px 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    box-shadow:var(--shadow-lg);
+    z-index:35;
+    transform:translateY(12px);
+    opacity:0;
+    transition:transform .22s var(--ease), opacity .22s var(--ease);
+  }
+  .undo-bar[hidden]{ display:none; }
+  .undo-bar.is-visible{ transform:translateY(0); opacity:1; }
+  .undo-bar span{ font-size:.85rem; }
+  .undo-btn{
+    border:none; background:transparent;
+    color:var(--accent); font-weight:700; font-size:.85rem;
+    padding:8px 12px; border-radius:8px; cursor:pointer;
+  }
+  .undo-btn:hover{ background:rgba(255,255,255,.08); }
+
+  /* ===== Bottom navigation ===== */
+  .bottom-nav{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px;
+    height:var(--bottom-h);
+    display:flex;
+    background:var(--shell-bg);
+    border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom);
+    z-index:20;
+  }
+  .nav-item{
+    flex:1; border:none; background:transparent;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; color:var(--text-muted); cursor:pointer;
+    font-size:.68rem; font-weight:600;
+    position:relative;
+  }
+  .nav-item svg{ width:22px; height:22px; transition:transform .18s var(--ease); }
+  .nav-item[aria-current="page"]{ color:var(--primary); }
+  .nav-item[aria-current="page"] svg{ transform:translateY(-2px); }
+  .nav-item:active svg{ transform:scale(.85); }
+  .nav-dot{
+    position:absolute; top:6px; right:30%;
+    width:6px; height:6px; border-radius:50%;
+    background:var(--danger);
+  }
+
+  @media (min-width:481px){
+    body{ background:linear-gradient(160deg, #ece8fb, #f3f2fb 40%); padding:24px 0; }
+    .app-shell{ min-height:auto; border-radius:28px; overflow:hidden; }
+    .bottom-nav{ position:absolute; }
+    .topbar, .tabs{ position:sticky; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001s !important; transition-duration:.001s !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===== Top App Bar ===== -->
+  <header class="topbar">
+    <button id="burgerBtn" class="icon-btn" type="button"
+      aria-label="Buka menu navigasi" aria-expanded="false" aria-controls="drawer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+
+    <h1 class="topbar-title">Tugas Saya</h1>
+
+    <div class="topbar-actions">
+      <button id="refreshBtn" class="icon-btn" type="button" aria-label="Muat ulang daftar tugas">
+        <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/>
+        </svg>
+      </button>
+
+      <div class="apps-menu-wrap">
+        <button id="appsMenuBtn" class="icon-btn" type="button"
+          aria-label="Menu lainnya" aria-haspopup="true" aria-expanded="false" aria-controls="appsMenu">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
+        </button>
+        <div id="appsMenu" class="apps-menu" role="menu" aria-label="Submenu aplikasi" hidden>
+          <button role="menuitem" type="button" data-toast="Membuka pengaturan tampilan">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></svg>
+            Pengaturan tampilan
+          </button>
+          <button role="menuitem" type="button" data-toast="Mengurutkan berdasarkan tanggal terbaru">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+            Urutkan tugas
+          </button>
+          <button role="menuitem" type="button" data-toast="Menampilkan semua label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13 21l-9-9 7.6-7.6H20.6Z"/><circle cx="9.5" cy="9.5" r="1.5"/></svg>
+            Kelola label
+          </button>
+          <hr>
+          <button role="menuitem" type="button" class="danger-item" data-toast="Mengosongkan tugas yang sudah diarsipkan">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            Kosongkan arsip
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Tabs bar ===== -->
+  <nav class="tabs" role="tablist" aria-label="Filter status tugas">
+    <button class="tab-btn" role="tab" id="tab-all" aria-selected="true" aria-controls="cardList" data-filter="all">
+      Semua <span class="tab-badge" data-count="all">5</span>
+    </button>
+    <button class="tab-btn" role="tab" id="tab-active" aria-selected="false" aria-controls="cardList" data-filter="active">
+      Aktif <span class="tab-badge" data-count="active">2</span>
+    </button>
+    <button class="tab-btn" role="tab" id="tab-done" aria-selected="false" aria-controls="cardList" data-filter="done">
+      Selesai <span class="tab-badge" data-count="done">2</span>
+    </button>
+    <button class="tab-btn" role="tab" id="tab-archived" aria-selected="false" aria-controls="cardList" data-filter="archived">
+      Diarsipkan <span class="tab-badge" data-count="archived">1</span>
+    </button>
+  </nav>
+
+  <!-- ===== Drawer overlay + drawer ===== -->
+  <div id="drawerOverlay" class="drawer-overlay" hidden></div>
+
+  <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Menu navigasi utama">
+    <div class="drawer-header">
+      <div class="drawer-avatar">DA</div>
+      <h2>Deni A.</h2>
+      <p>Freelance Developer</p>
+    </div>
+    <nav class="drawer-nav" aria-label="Tautan navigasi">
+      <div class="drawer-section-label">Menu</div>
+      <button class="drawer-link is-active" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dasbor
+      </button>
+      <button class="drawer-link" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Daftar Tugas
+      </button>
+      <button class="drawer-link" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Kalender
+      </button>
+      <button class="drawer-link" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        Statistik
+      </button>
+      <div class="drawer-section-label">Lainnya</div>
+      <button class="drawer-link" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 4 2.8c-.7.3-1.1 1-1.1 1.7v.5M12 17h.01"/></svg>
+        Bantuan
+      </button>
+      <button class="drawer-link" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+        Profil Saya
+      </button>
+    </nav>
+    <div class="drawer-footer">
+      <span class="theme-toggle">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 1 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        Mode Gelap
+      </span>
+      <button id="themeSwitch" class="switch" type="button" role="switch" aria-checked="false" aria-label="Aktifkan mode gelap"></button>
+    </div>
+  </aside>
+
+  <!-- ===== Main content ===== -->
+  <main id="cardList" class="content" role="tabpanel" aria-labelledby="tab-all">
+    <div class="section-heading">
+      <h3>Daftar Tugas</h3>
+      <span id="resultCount">5 tugas</span>
+    </div>
+
+    <div class="card-list" id="cardListInner">
+
+      <article class="card" data-id="1" data-status="active">
+        <div class="card-top">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 16h5"/></svg>
+          </div>
+          <div class="card-body">
+            <h4>Desain landing page ELC Tegal</h4>
+            <p>Susun wireframe hero, profil program, dan testimoni untuk client Elcoding.id.</p>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn delete-btn" type="button" aria-label="Hapus tugas: Desain landing page ELC Tegal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="chip tone-active">Aktif</span>
+          <span class="date-label">Tenggat 28 Jun</span>
+        </div>
+      </article>
+
+      <article class="card" data-id="2" data-status="active">
+        <div class="card-top">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a4 4 0 0 1-5.7 5.7L9 18l-4 1 1-4 6.7-6.7a4 4 0 0 1 5.7-5.7l-3 3Z"/></svg>
+          </div>
+          <div class="card-body">
+            <h4>Setup admin panel mini CMS</h4>
+            <p>Implementasi Laravel Breeze + auth role admin untuk panel ELC Tegal.</p>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn delete-btn" type="button" aria-label="Hapus tugas: Setup admin panel mini CMS">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="chip tone-active">Aktif</span>
+          <span class="date-label">Tenggat 30 Jun</span>
+        </div>
+      </article>
+
+      <article class="card" data-id="3" data-status="done">
+        <div class="card-top">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div class="card-body">
+            <h4>Riset profil bisnis Azzahra Computer</h4>
+            <p>Kumpulkan data ulasan Google Maps dan aktivitas seminar untuk konten landing page.</p>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn delete-btn" type="button" aria-label="Hapus tugas: Riset profil bisnis Azzahra Computer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="chip tone-done">Selesai</span>
+          <span class="date-label">Diselesaikan 20 Jun</span>
+        </div>
+      </article>
+
+      <article class="card" data-id="4" data-status="done">
+        <div class="card-top">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div class="card-body">
+            <h4>Selesaikan modul Docker masterclass</h4>
+            <p>Tuntaskan 15 modul kurikulum Docker untuk persiapan portofolio SI-Kasir.</p>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn delete-btn" type="button" aria-label="Hapus tugas: Selesaikan modul Docker masterclass">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="chip tone-done">Selesai</span>
+          <span class="date-label">Diselesaikan 15 Jun</span>
+        </div>
+      </article>
+
+      <article class="card" data-id="5" data-status="archived">
+        <div class="card-top">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13 21l-9-9 7.6-7.6H20.6Z"/><circle cx="9.5" cy="9.5" r="1.5"/></svg>
+          </div>
+          <div class="card-body">
+            <h4>Brainstorming nama proyek lama</h4>
+            <p>Catatan ide awal sebelum proyek ELC Tegal disepakati — sudah tidak relevan.</p>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn delete-btn" type="button" aria-label="Hapus tugas: Brainstorming nama proyek lama">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="chip tone-archived">Diarsipkan</span>
+          <span class="date-label">Diarsipkan 2 Jun</span>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="empty-state" id="emptyState" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <p>Tidak ada tugas di kategori ini.</p>
+    </div>
+  </main>
+
+  <!-- Undo bar: inline contextual action, bukan notifikasi sistem -->
+  <div id="undoBar" class="undo-bar" role="status" hidden>
+    <span id="undoText">Tugas dihapus</span>
+    <button id="undoBtn" class="undo-btn" type="button">Urungkan</button>
+  </div>
+
+  <!-- Screen-reader only live region for refresh status (a11y, bukan toast visual) -->
+  <p id="liveStatus" class="sr-only" role="status" aria-live="polite"></p>
+
+  <!-- ===== Bottom navigation ===== -->
+  <nav class="bottom-nav" aria-label="Navigasi utama">
+    <button class="nav-item" type="button" aria-current="page" data-nav="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+      Beranda
+    </button>
+    <button class="nav-item" type="button" data-nav="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      Cari
+    </button>
+    <button class="nav-item" type="button" data-nav="favorite">
+      <span class="nav-dot" hidden></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-4.6-10-9.1C.5 8.4 2.4 5 6 5c2 0 3.5 1 4 2.3.5-1.3 2-2.3 4-2.3 3.6 0 5.5 3.4 4 6.9-2.5 4.5-10 9.1-10 9.1Z"/></svg>
+      Favorit
+    </button>
+    <button class="nav-item" type="button" data-nav="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+      Profil
+    </button>
+  </nav>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ===================== Helpers ===================== */
+  function qs(sel, ctx){ return (ctx||document).querySelector(sel); }
+  function qsa(sel, ctx){ return Array.prototype.slice.call((ctx||document).querySelectorAll(sel)); }
+
+  var liveStatus = qs('#liveStatus');
+  function announce(msg){ liveStatus.textContent = ''; setTimeout(function(){ liveStatus.textContent = msg; }, 30); }
+
+  /* ===================== Theme toggle ===================== */
+  var themeSwitch = qs('#themeSwitch');
+  themeSwitch.addEventListener('click', function(){
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    themeSwitch.setAttribute('aria-checked', String(!isDark));
+    announce(isDark ? 'Mode terang diaktifkan' : 'Mode gelap diaktifkan');
+  });
+
+  /* ===================== Burger drawer ===================== */
+  var burgerBtn = qs('#burgerBtn');
+  var drawer = qs('#drawer');
+  var drawerOverlay = qs('#drawerOverlay');
+  var lastFocused = null;
+
+  function openDrawer(){
+    lastFocused = document.activeElement;
+    drawerOverlay.hidden = false;
+    requestAnimationFrame(function(){
+      drawerOverlay.classList.add('is-visible');
+      drawer.classList.add('is-open');
+    });
+    drawer.setAttribute('aria-hidden', 'false');
+    burgerBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    var firstLink = qs('.drawer-link', drawer);
+    if(firstLink) firstLink.focus();
+  }
+
+  function closeDrawer(){
+    drawer.classList.remove('is-open');
+    drawerOverlay.classList.remove('is-visible');
+    drawer.setAttribute('aria-hidden', 'true');
+    burgerBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    setTimeout(function(){ drawerOverlay.hidden = true; }, 260);
+    if(lastFocused) lastFocused.focus();
+  }
+
+  burgerBtn.addEventListener('click', openDrawer);
+  drawerOverlay.addEventListener('click', closeDrawer);
+
+  drawer.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ closeDrawer(); return; }
+    if(e.key === 'Tab'){
+      var focusables = qsa('button, a[href]', drawer).filter(function(el){ return !el.disabled; });
+      if(focusables.length === 0) return;
+      var first = focusables[0], last = focusables[focusables.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  });
+
+  qsa('.drawer-link', drawer).forEach(function(link){
+    link.addEventListener('click', function(){
+      qsa('.drawer-link', drawer).forEach(function(l){ l.classList.remove('is-active'); });
+      link.classList.add('is-active');
+      closeDrawer();
+    });
+  });
+
+  /* ===================== Top apps submenu ===================== */
+  var appsMenuBtn = qs('#appsMenuBtn');
+  var appsMenu = qs('#appsMenu');
+
+  function openAppsMenu(){
+    appsMenu.hidden = false;
+    appsMenuBtn.setAttribute('aria-expanded', 'true');
+    qs('button', appsMenu).focus();
+  }
+  function closeAppsMenu(){
+    appsMenu.hidden = true;
+    appsMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  appsMenuBtn.addEventListener('click', function(){
+    appsMenu.hidden ? openAppsMenu() : closeAppsMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if(!appsMenu.hidden && !appsMenu.contains(e.target) && e.target !== appsMenuBtn){
+      closeAppsMenu();
+    }
+  });
+  appsMenu.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ closeAppsMenu(); appsMenuBtn.focus(); }
+  });
+  qsa('button[role="menuitem"]', appsMenu).forEach(function(item){
+    item.addEventListener('click', function(){
+      closeAppsMenu();
+      appsMenuBtn.focus();
+    });
+  });
+
+  /* ===================== Tabs filtering ===================== */
+  var tabs = qsa('.tab-btn');
+  var cards = qsa('.card', qs('#cardListInner'));
+  var emptyState = qs('#emptyState');
+  var resultCount = qs('#resultCount');
+  var cardListMain = qs('#cardList');
+
+  function applyFilter(filter){
+    var visibleCount = 0;
+    cards.forEach(function(card){
+      var status = card.getAttribute('data-status');
+      var match = (filter === 'all') || (status === filter) || card.dataset.deleted === 'true' && false;
+      var isDeleted = card.dataset.deleted === 'true';
+      var show = match && !isDeleted;
+      card.hidden = !show;
+      if(show) visibleCount++;
+    });
+    emptyState.hidden = visibleCount !== 0;
+    resultCount.textContent = visibleCount + ' tugas';
+  }
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.setAttribute('aria-selected', 'false'); });
+      tab.setAttribute('aria-selected', 'true');
+      cardListMain.setAttribute('aria-labelledby', tab.id);
+      applyFilter(tab.dataset.filter);
+    });
+    tab.addEventListener('keydown', function(e){
+      var idx = tabs.indexOf(tab);
+      if(e.key === 'ArrowRight'){ e.preventDefault(); (tabs[idx+1] || tabs[0]).focus(); (tabs[idx+1] || tabs[0]).click(); }
+      if(e.key === 'ArrowLeft'){ e.preventDefault(); (tabs[idx-1] || tabs[tabs.length-1]).focus(); (tabs[idx-1] || tabs[tabs.length-1]).click(); }
+    });
+  });
+
+  function updateBadgeCounts(){
+    var counts = { all: 0, active: 0, done: 0, archived: 0 };
+    cards.forEach(function(card){
+      if(card.dataset.deleted === 'true') return;
+      counts.all++;
+      counts[card.getAttribute('data-status')]++;
+    });
+    Object.keys(counts).forEach(function(key){
+      var badge = qs('.tab-badge[data-count="'+key+'"]');
+      if(badge) badge.textContent = counts[key];
+    });
+  }
+  updateBadgeCounts();
+
+  /* ===================== Delete + Undo (no confirm dialog) ===================== */
+  var undoBar = qs('#undoBar');
+  var undoText = qs('#undoText');
+  var undoBtn = qs('#undoBtn');
+  var pendingDeleteCard = null;
+  var undoTimer = null;
+
+  function hideUndoBar(){
+    undoBar.classList.remove('is-visible');
+    setTimeout(function(){ undoBar.hidden = true; }, 220);
+  }
+
+  function finalizeDelete(){
+    // tugas dianggap terhapus permanen setelah jendela undo lewat
+    pendingDeleteCard = null;
+    updateBadgeCounts();
+  }
+
+  qsa('.delete-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var card = btn.closest('.card');
+      var title = qs('h4', card).textContent;
+
+      // jika ada penghapusan tertunda sebelumnya, finalisasi dulu
+      if(pendingDeleteCard && pendingDeleteCard !== card){
+        finalizeDelete();
+      }
+      clearTimeout(undoTimer);
+
+      card.classList.add('is-removing');
+      card.dataset.deleted = 'true';
+      setTimeout(function(){ card.hidden = true; }, 300);
+
+      pendingDeleteCard = card;
+      undoText.textContent = '"' + title + '" dihapus';
+      undoBar.hidden = false;
+      requestAnimationFrame(function(){ undoBar.classList.add('is-visible'); });
+      announce(title + ' dihapus. Tersedia opsi urungkan.');
+
+      var activeTab = qs('.tab-btn[aria-selected="true"]');
+      applyFilter(activeTab.dataset.filter);
+      updateBadgeCounts();
+
+      undoTimer = setTimeout(function(){
+        hideUndoBar();
+        finalizeDelete();
+      }, 5000);
+    });
+  });
+
+  undoBtn.addEventListener('click', function(){
+    if(!pendingDeleteCard) return;
+    clearTimeout(undoTimer);
+    var card = pendingDeleteCard;
+    card.dataset.deleted = 'false';
+    card.hidden = false;
+    card.classList.remove('is-removing');
+    card.classList.add('is-entering');
+    setTimeout(function(){ card.classList.remove('is-entering'); }, 350);
+
+    var activeTab = qs('.tab-btn[aria-selected="true"]');
+    applyFilter(activeTab.dataset.filter);
+    updateBadgeCounts();
+
+    hideUndoBar();
+    announce('Penghapusan diurungkan');
+    pendingDeleteCard = null;
+  });
+
+  /* ===================== Refresh ===================== */
+  var refreshBtn = qs('#refreshBtn');
+  var refreshIcon = qs('.refresh-icon', refreshBtn);
+  var content = qs('.content');
+
+  refreshBtn.addEventListener('click', function(){
+    if(refreshBtn.disabled) return;
+    refreshBtn.disabled = true;
+    refreshIcon.classList.add('is-spinning');
+    content.classList.add('is-loading');
+
+    setTimeout(function(){
+      refreshIcon.classList.remove('is-spinning');
+      content.classList.remove('is-loading');
+      refreshBtn.disabled = false;
+      var activeTab = qs('.tab-btn[aria-selected="true"]');
+      applyFilter(activeTab.dataset.filter);
+      announce('Daftar tugas diperbarui');
+    }, 850);
+  });
+
+  /* ===================== Bottom navigation ===================== */
+  var navItems = qsa('.nav-item');
+  navItems.forEach(function(item){
+    item.addEventListener('click', function(){
+      navItems.forEach(function(n){ n.removeAttribute('aria-current'); });
+      item.setAttribute('aria-current', 'page');
+    });
+  });
+
+  /* ===================== Global escape key ===================== */
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){
+      if(!appsMenu.hidden) closeAppsMenu();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
